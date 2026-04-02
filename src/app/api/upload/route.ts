@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const result = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
-          folder: `Momento/AdimandJojo26}`,
+          folder: `Momento/AdimandJojo26`,
           resource_type: isVideo ? 'video' : 'image',
           transformation: isVideo
             ? [{ quality: 'auto' }]
