@@ -7,10 +7,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { QRCodeSVG } from 'qrcode.react'
+import JSZip from 'jszip'
 import { createClient } from '@/lib/supabase/client'
 import { formatTimeAgo } from '@/lib/utils'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
-import JSZip from 'jszip'
 
 type Event = {
   id: string
@@ -50,18 +50,38 @@ const pillButton: React.CSSProperties = {
   textDecoration: 'none',
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  backgroundColor: 'var(--bg-input)',
+  border: '1px solid var(--border)',
+  borderRadius: '0.75rem',
+  padding: '0.875rem 1rem',
+  color: 'var(--text-primary)',
+  fontSize: '1rem',
+  outline: 'none',
+  boxSizing: 'border-box',
+  minHeight: '52px',
+}
+
 export default function EventDashboardPage() {
   const { eventId } = useParams()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
+
   const [event, setEvent] = useState<Event | null>(null)
   const [media, setMedia] = useState<Media[]>([])
   const [copied, setCopied] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [zipping, setZipping] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 
+  const appUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ??
     (typeof window !== 'undefined' ? window.location.origin : '')
+  ).replace(/\/$/, '')
 
   const eventUrl = event ? `${appUrl}/e/${event.slug}` : ''
 
@@ -97,19 +117,41 @@ export default function EventDashboardPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (!event) return (
-    <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading...</p>
-    </main>
-  )
+  function openEdit() {
+    if (!event) return
+    setEditTitle(event.title)
+    setEditDescription(event.description ?? '')
+    setEditing(true)
+  }
+
+  async function handleSaveEdit() {
+    if (!editTitle.trim() || !event) return
+    const { data, error } = await supabase
+      .from('events')
+      .update({ title: editTitle, description: editDescription })
+      .eq('id', event.id)
+      .select()
+      .single()
+    if (!error && data) {
+      setEvent(data)
+      setEditing(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!event) return
+    const confirmed = window.confirm(`Delete "${event.title}"? This will remove all uploads too.`)
+    if (!confirmed) return
+    setDeleting(true)
+    await supabase.from('events').delete().eq('id', event.id)
+    router.push('/dashboard')
+  }
 
   async function handleDownloadAll() {
     if (media.length === 0) return
     setZipping(true)
-
     try {
       const zip = new JSZip()
-
       await Promise.all(
         media.map(async (item, index) => {
           const response = await fetch(item.url)
@@ -119,7 +161,6 @@ export default function EventDashboardPage() {
           zip.file(name, blob)
         })
       )
-
       const content = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(content)
       const a = document.createElement('a')
@@ -130,9 +171,14 @@ export default function EventDashboardPage() {
     } catch (err) {
       console.error('Zip failed:', err)
     }
-
     setZipping(false)
   }
+
+  if (!event) return (
+    <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading...</p>
+    </main>
+  )
 
   return (
     <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', width: '100%' }}>
@@ -184,6 +230,7 @@ export default function EventDashboardPage() {
               <QRCodeSVG value={eventUrl} size={200} />
             </div>
           )}
+
           <button
             onClick={handleDownloadAll}
             disabled={zipping || media.length === 0}
@@ -192,6 +239,61 @@ export default function EventDashboardPage() {
             {zipping ? `Zipping ${media.length} files...` : `↓ Download all (${media.length})`}
           </button>
         </div>
+
+        {/* Edit form */}
+        {editing && (
+          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '1rem', padding: '1.25rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <h4 style={{ color: 'var(--text-primary)', margin: 0 }}>Edit event</h4>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              placeholder="Event title"
+              style={inputStyle}
+            />
+            <textarea
+              value={editDescription}
+              onChange={e => setEditDescription(e.target.value)}
+              placeholder="Description (optional)"
+              rows={3}
+              style={{ ...inputStyle, minHeight: 'unset', resize: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: '0.625rem' }}>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editTitle.trim()}
+                style={{ flex: 1, backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px', opacity: !editTitle.trim() ? 0.4 : 1 }}
+              >
+                Save changes
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                style={{ padding: '0.875rem 1.25rem', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-muted)', background: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit and delete actions */}
+        {!editing && (
+          <div style={{ display: 'flex', gap: '0.625rem' }}>
+            <button
+              onClick={openEdit}
+              style={{ flex: 1, border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', background: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px' }}
+            >
+              Edit event
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{ flex: 1, border: '1px solid #7f1d1d', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, color: '#ef4444', background: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px', opacity: deleting ? 0.4 : 1 }}
+            >
+              {deleting ? 'Deleting...' : 'Delete event'}
+            </button>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -223,9 +325,10 @@ export default function EventDashboardPage() {
                 <Image
                   src={item.url}
                   alt=""
-                  width={400}
-                  height={225}
+                  width={500}
+                  height={281}
                   style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
+                  priority={false}
                 />
               ) : (
                 <video
