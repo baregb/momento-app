@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 type Event = {
   id: string
@@ -87,6 +88,10 @@ export default function UploadPage() {
       .map(t => t.trim().toLowerCase())
       .filter(Boolean)
 
+    const batchId = files.length > 1
+      ? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      : null
+
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
@@ -110,6 +115,7 @@ export default function UploadPage() {
           type: data.type,
           uploaded_by: guestName,
           hashtags: parsedTags,
+          batch_id: batchId,
         })
       }
       setDone(true)
@@ -178,6 +184,7 @@ export default function UploadPage() {
         <p style={{ color: 'var(--text-primary)', margin: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '1rem', flex: 1 }}>
           {event.title}
         </p>
+        <ThemeToggle />
       </header>
 
       <div style={{ maxWidth: '32rem', margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -253,11 +260,12 @@ export default function UploadPage() {
             <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
               Photos & videos *
             </label>
-            <div style={{ display: 'flex', gap: '0.625rem' }}>
-
-              {/* Camera capture */}
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.775rem', margin: 0 }}>
+              Selecting multiple files will group them as a carousel post
+            </p>
+            <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.375rem' }}>
               <label
-                style={{ flex: 1, minHeight: '52px', border: '1px solid var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
+                style={{ flex: 1, minHeight: '72px', border: '1px solid var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
               >
                 <span style={{ fontSize: '1.25rem' }}>📷</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.775rem', fontWeight: 600 }}>Camera</span>
@@ -270,9 +278,8 @@ export default function UploadPage() {
                 />
               </label>
 
-              {/* Library picker */}
               <label
-                style={{ flex: 1, minHeight: '52px', border: files && files.length > 0 ? '2px solid var(--accent)' : '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
+                style={{ flex: 1, minHeight: '72px', border: files && files.length > 0 ? '2px solid var(--accent)' : '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
               >
                 <span style={{ fontSize: '1.25rem' }}>🖼️</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.775rem', fontWeight: 600, textAlign: 'center' }}>
