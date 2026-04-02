@@ -214,23 +214,21 @@ export default function UploadPage() {
               <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
                 Your name (optional)
               </label>
-              {name && !showNameChange && (
+              {name && (
                 <button
-                  onClick={() => setShowNameChange(true)}
+                  onClick={() => { setName(''); localStorage.removeItem('momento-guest-name') }}
                   style={{ color: 'var(--text-muted)', fontSize: '0.775rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
-                  Not you?
+                  Clear
                 </button>
               )}
             </div>
-            {showNameChange || !name ? (
+            {showNameChange ? (
               <input
                 type="text"
                 placeholder="e.g. Kemi"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                onBlur={() => setShowNameChange(false)}
-                autoFocus={showNameChange}
                 style={input}
               />
             ) : (
