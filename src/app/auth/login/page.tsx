@@ -83,6 +83,16 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
 
+          <div style={{ textAlign: 'right' }}>
+            <Link
+              href="/auth/forgot-password"
+              style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             No account?{' '}
             <Link href="/auth/register" style={{ color: 'var(--text-silver)', fontWeight: 600 }}>

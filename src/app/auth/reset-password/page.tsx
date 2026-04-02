@@ -4,31 +4,38 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [error, setError] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  async function handleRegister() {
+  async function handleUpdate() {
+    if (password !== confirm) {
+      setError('Passwords do not match')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-      }
-    })
-    if (error) { setError(error.message); setLoading(false); return }
+
+    const { error } = await supabase.auth.updateUser({ password })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+
     router.push('/dashboard')
   }
 
@@ -55,8 +62,10 @@ export default function RegisterPage() {
         <div style={{ width: '100%', maxWidth: '24rem', backgroundColor: 'var(--bg-surface)', borderRadius: '1.25rem', padding: '2rem 1.5rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
           <div>
-            <h1 style={{ color: 'var(--text-primary)', marginBottom: '0.25rem' }}>Create account</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Host your first event in minutes</p>
+            <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>New password</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+              Choose a new password for your account
+            </p>
           </div>
 
           {error && (
@@ -67,44 +76,32 @@ export default function RegisterPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <input
-              type="text"
-              placeholder="Full name"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              style={input}
-            />
-            <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              type="password"
+              placeholder="New password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               style={input}
             />
             <input
               type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+              placeholder="Confirm new password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleUpdate()}
               style={input}
             />
           </div>
 
           <button
-            onClick={handleRegister}
-            disabled={loading}
-            style={{ width: '100%', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px', opacity: loading ? 0.5 : 1 }}
+            onClick={handleUpdate}
+            disabled={loading || !password.trim() || !confirm.trim()}
+            style={{ width: '100%', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px', opacity: loading || !password.trim() || !confirm.trim() ? 0.4 : 1 }}
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? 'Updating...' : 'Update password'}
           </button>
-
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Already have an account?{' '}
-            <Link href="/auth/login" style={{ color: 'var(--text-silver)', fontWeight: 600 }}>
-              Sign in
-            </Link>
-          </p>
         </div>
       </div>
     </main>
   )
 }
+
