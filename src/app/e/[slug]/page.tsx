@@ -101,7 +101,6 @@ export default function EventFeedPage() {
   return (
     <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', width: '100%' }}>
 
-      {/* Header */}
       <header style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.625rem', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ color: 'var(--text-primary)', margin: 0, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '1rem' }}>
@@ -116,7 +115,6 @@ export default function EventFeedPage() {
         <ThemeToggle />
       </header>
 
-      {/* Hashtag filter bar */}
       {allTags.length > 0 && (
         <div style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '0.625rem 1rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <button
@@ -137,7 +135,6 @@ export default function EventFeedPage() {
         </div>
       )}
 
-      {/* TikTok-style feed */}
       <div style={{ scrollSnapType: 'y mandatory', overflowY: 'scroll', height: 'calc(100dvh - 57px)', width: '100%' }}>
 
         {filtered.length === 0 && (
@@ -156,22 +153,26 @@ export default function EventFeedPage() {
             style={{ scrollSnapAlign: 'start', height: '100dvh', width: '100%', position: 'relative', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             {item.type === 'image' ? (
-              <Image
-                src={item.url}
-                alt=""
-                fill
-                style={{ objectFit: 'contain' }}
-              />
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <Image
+                  src={item.url}
+                  alt=""
+                  fill
+                  sizes="100vw"
+                  style={{ objectFit: 'contain' }}
+                  unoptimized
+                />
+              </div>
             ) : (
               <video
                 src={item.url}
                 controls
                 playsInline
+                crossOrigin="anonymous"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
               />
             )}
 
-            {/* Overlay info */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '3rem 1rem 1.5rem', background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}>
               <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.875rem', margin: 0 }}>
                 {item.uploaded_by ?? 'Anonymous'}
@@ -189,7 +190,6 @@ export default function EventFeedPage() {
         ))}
       </div>
 
-      {/* Upload FAB */}
       <Link
         href={`/e/${slug}/upload`}
         style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '2rem', padding: '0.875rem 1.25rem', fontWeight: 700, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem', textDecoration: 'none', zIndex: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}

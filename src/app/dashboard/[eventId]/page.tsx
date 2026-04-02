@@ -77,6 +77,7 @@ export default function EventDashboardPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null)
 
   const appUrl = (
     process.env.NEXT_PUBLIC_APP_URL ??
@@ -138,13 +139,27 @@ export default function EventDashboardPage() {
     }
   }
 
-  async function handleDelete() {
+  async function handleDeleteEvent() {
     if (!event) return
     const confirmed = window.confirm(`Delete "${event.title}"? This will remove all uploads too.`)
     if (!confirmed) return
     setDeleting(true)
     await supabase.from('events').delete().eq('id', event.id)
     router.push('/dashboard')
+  }
+
+  async function handleDeleteMedia(item: Media) {
+    const confirmed = window.confirm('Delete this upload? This cannot be undone.')
+    if (!confirmed) return
+    setDeletingMediaId(item.id)
+
+    const path = item.url.split('/event-media/')[1]
+    if (path) {
+      await supabase.storage.from('event-media').remove([path])
+    }
+    await supabase.from('media').delete().eq('id', item.id)
+    setMedia(prev => prev.filter(m => m.id !== item.id))
+    setDeletingMediaId(null)
   }
 
   async function handleDownloadAll() {
@@ -276,7 +291,7 @@ export default function EventDashboardPage() {
           </div>
         )}
 
-        {/* Edit and delete actions */}
+        {/* Edit and delete event actions */}
         {!editing && (
           <div style={{ display: 'flex', gap: '0.625rem' }}>
             <button
@@ -286,7 +301,7 @@ export default function EventDashboardPage() {
               Edit event
             </button>
             <button
-              onClick={handleDelete}
+              onClick={handleDeleteEvent}
               disabled={deleting}
               style={{ flex: 1, border: '1px solid #7f1d1d', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, color: '#ef4444', background: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px', opacity: deleting ? 0.4 : 1 }}
             >
@@ -320,20 +335,24 @@ export default function EventDashboardPage() {
           )}
 
           {media.map(item => (
-            <div key={item.id} style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div key={item.id} style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '1rem', border: '1px solid var(--border)', overflow: 'hidden', opacity: deletingMediaId === item.id ? 0.4 : 1 }}>
               {item.type === 'image' ? (
-                <Image
-                  src={item.url}
-                  alt=""
-                  width={500}
-                  height={281}
-                  style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
-                  priority={false}
-                />
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
+                  <Image
+                    src={item.url}
+                    alt=""
+                    fill
+                    sizes="(max-width: 512px) 100vw, 512px"
+                    style={{ objectFit: 'cover' }}
+                    unoptimized
+                  />
+                </div>
               ) : (
                 <video
                   src={item.url}
                   controls
+                  playsInline
+                  crossOrigin="anonymous"
                   style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
                 />
               )}
@@ -348,7 +367,7 @@ export default function EventDashboardPage() {
                     </p>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                   <span style={{ color: 'var(--text-dim)', fontSize: '0.825rem' }}>
                     {item.views} views
                   </span>
@@ -359,6 +378,13 @@ export default function EventDashboardPage() {
                   >
                     ↓
                   </a>
+                  <button
+                    onClick={() => handleDeleteMedia(item)}
+                    disabled={deletingMediaId === item.id}
+                    style={{ color: '#ef4444', fontSize: '0.875rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', minHeight: '44px', display: 'flex', alignItems: 'center' }}
+                  >
+                    🗑
+                  </button>
                 </div>
               </div>
             </div>
