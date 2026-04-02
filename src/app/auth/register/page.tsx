@@ -59,7 +59,7 @@ export default function RegisterPage() {
               <div>
                 <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Check your email</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                  We sent a confirmation link to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>. Click it to activate your account and you'll be taken straight to your dashboard.
+                  We sent a confirmation link to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>. Click it to activate your account and you will be taken straight to your dashboard.
                 </p>
               </div>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>

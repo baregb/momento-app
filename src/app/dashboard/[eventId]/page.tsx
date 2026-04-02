@@ -60,9 +60,10 @@ export default function EventDashboardPage() {
   const [showQR, setShowQR] = useState(false)
   const [zipping, setZipping] = useState(false)
 
-  const eventUrl = event
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/e/${event.slug}`
-    : ''
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 
+    (typeof window !== 'undefined' ? window.location.origin : '')
+
+  const eventUrl = event ? `${appUrl}/e/${event.slug}` : ''
 
   useEffect(() => {
     async function fetchEvent() {
