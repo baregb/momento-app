@@ -344,7 +344,6 @@ export default function EventDashboardPage() {
                     fill
                     sizes="(max-width: 512px) 100vw, 512px"
                     style={{ objectFit: 'cover' }}
-                    unoptimized
                   />
                 </div>
               ) : (

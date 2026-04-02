@@ -59,24 +59,22 @@ export default function UploadPage() {
 
     try {
       for (const file of Array.from(files)) {
-        const ext = file.name.split('.').pop()
-        const path = `${event.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const isVideo = file.type.startsWith('video/')
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('eventId', event.id)
 
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('event-media')
-          .upload(path, file, { contentType: file.type })
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
 
-        if (storageError) throw storageError
-
-        const { data: urlData } = supabase.storage
-          .from('event-media')
-          .getPublicUrl(storageData.path)
+        const data = await response.json()
+        if (data.error) throw new Error(data.error)
 
         await supabase.from('media').insert({
           event_id: event.id,
-          url: urlData.publicUrl,
-          type: isVideo ? 'video' : 'image',
+          url: data.url,
+          type: data.type,
           uploaded_by: guestName,
           hashtags: parsedTags,
         })

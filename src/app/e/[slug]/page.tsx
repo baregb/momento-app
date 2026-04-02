@@ -35,7 +35,13 @@ export default function EventFeedPage() {
   const [media, setMedia] = useState<Media[]>([])
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sharedId, setSharedId] = useState<string | null>(null)
   const observerRefs = useRef<Map<string, IntersectionObserver>>(new Map())
+
+  const appUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (typeof window !== 'undefined' ? window.location.origin : '')
+  ).replace(/\/$/, '')
 
   useEffect(() => {
     async function fetchData() {
@@ -78,6 +84,28 @@ export default function EventFeedPage() {
     observerRefs.current.set(mediaId, observer)
   }
 
+  async function handleShare(item: Media) {
+    const shareUrl = `${appUrl}/e/${slug}?post=${item.id}`
+    const uploadedBy = item.uploaded_by ?? 'Anonymous'
+    const shareData = {
+      title: event?.title ?? 'Momento',
+      text: `Check out this photo from ${uploadedBy} at ${event?.title}`,
+      url: shareUrl,
+    }
+
+    try {
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.clipboard.writeText(shareUrl)
+        setSharedId(item.id)
+        setTimeout(() => setSharedId(null), 2000)
+      }
+    } catch (err) {
+      console.error('Share failed:', err)
+    }
+  }
+
   const allTags = Array.from(
     new Set(media.flatMap(m => m.hashtags))
   ).filter(Boolean)
@@ -115,6 +143,7 @@ export default function EventFeedPage() {
         <ThemeToggle />
       </header>
 
+      {/* Hashtag category filter bar */}
       {allTags.length > 0 && (
         <div style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '0.625rem 1rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <button
@@ -135,7 +164,8 @@ export default function EventFeedPage() {
         </div>
       )}
 
-      <div style={{ scrollSnapType: 'y mandatory', overflowY: 'scroll', height: 'calc(100dvh - 57px)', width: '100%' }}>
+      {/* Feed */}
+      <div style={{ scrollSnapType: 'y mandatory', overflowY: 'scroll', height: allTags.length > 0 ? 'calc(100dvh - 105px)' : 'calc(100dvh - 57px)', width: '100%' }}>
 
         {filtered.length === 0 && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', padding: '2rem' }}>
@@ -143,6 +173,14 @@ export default function EventFeedPage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textAlign: 'center' }}>
               {activeTag ? `No uploads tagged #${activeTag} yet.` : 'No uploads yet. Be the first to share!'}
             </p>
+            {activeTag && (
+              <button
+                onClick={() => setActiveTag(null)}
+                style={{ border: '1px solid var(--border)', borderRadius: '2rem', padding: '0.5rem 1rem', background: 'none', color: 'var(--text-muted)', fontSize: '0.825rem', cursor: 'pointer' }}
+              >
+                Clear filter
+              </button>
+            )}
           </div>
         )}
 
@@ -160,7 +198,6 @@ export default function EventFeedPage() {
                   fill
                   sizes="100vw"
                   style={{ objectFit: 'contain' }}
-                  unoptimized
                 />
               </div>
             ) : (
@@ -173,23 +210,48 @@ export default function EventFeedPage() {
               />
             )}
 
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '3rem 1rem 1.5rem', background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}>
-              <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.875rem', margin: 0 }}>
-                {item.uploaded_by ?? 'Anonymous'}
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.825rem', margin: '0.125rem 0 0' }}>
-                {formatTimeAgo(item.created_at)} · {item.views} views
-              </p>
+            {/* Overlay */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4rem 1rem 1.5rem', background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)' }}>
+
+              {/* Tappable hashtag pills */}
               {item.hashtags.length > 0 && (
-                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.825rem', marginTop: '0.375rem' }}>
-                  {item.hashtags.map(t => `#${t}`).join(' ')}
-                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.625rem' }}>
+                  {item.hashtags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                      style={{ height: '28px', paddingLeft: '0.625rem', paddingRight: '0.625rem', borderRadius: '2rem', border: '1px solid rgba(255,255,255,0.3)', backgroundColor: activeTag === tag ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)', color: '#ffffff', fontSize: '0.775rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
               )}
+
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <div>
+                  <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.875rem', margin: 0 }}>
+                    {item.uploaded_by ?? 'Anonymous'}
+                  </p>
+                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.825rem', margin: '0.125rem 0 0' }}>
+                    {formatTimeAgo(item.created_at)} · {item.views} views
+                  </p>
+                </div>
+
+                {/* Share button */}
+                <button
+                  onClick={() => handleShare(item)}
+                  style={{ height: '44px', paddingLeft: '1rem', paddingRight: '1rem', borderRadius: '2rem', border: '1px solid rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', fontSize: '0.825rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+                >
+                  {sharedId === item.id ? '✓ Copied' : '↗ Share'}
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Upload FAB */}
       <Link
         href={`/e/${slug}/upload`}
         style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '2rem', padding: '0.875rem 1.25rem', fontWeight: 700, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem', textDecoration: 'none', zIndex: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}
