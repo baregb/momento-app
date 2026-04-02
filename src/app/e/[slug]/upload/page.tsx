@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 type Event = {
   id: string
@@ -21,11 +20,14 @@ export default function UploadPage() {
 
   const [event, setEvent] = useState<Event | null>(null)
   const [name, setName] = useState('')
+  const [showNameChange, setShowNameChange] = useState(false)
   const [hashtags, setHashtags] = useState('')
   const [files, setFiles] = useState<FileList | null>(null)
   const [uploading, setUploading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
+  const [fileSizeWarning, setFileSizeWarning] = useState('')
 
   useEffect(() => {
     async function fetchEvent() {
@@ -42,12 +44,40 @@ export default function UploadPage() {
     if (savedName) setName(savedName)
 
     fetchEvent()
-  }, [slug, router, supabase])
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (uploading) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [slug, router, supabase, uploading])
+
+  function handleFileChange(incoming: FileList | null) {
+    if (!incoming) return
+    setFileSizeWarning('')
+    const oversized = Array.from(incoming).filter(f => f.size > 100 * 1024 * 1024)
+    if (oversized.length > 0) {
+      setFileSizeWarning(
+        `${oversized.length} file${oversized.length > 1 ? 's' : ''} exceed 100MB and will be skipped: ${oversized.map(f => f.name).join(', ')}`
+      )
+      const dt = new DataTransfer()
+      Array.from(incoming)
+        .filter(f => f.size <= 100 * 1024 * 1024)
+        .forEach(f => dt.items.add(f))
+      setFiles(dt.files.length > 0 ? dt.files : null)
+    } else {
+      setFiles(incoming)
+    }
+  }
 
   async function handleUpload() {
     if (!files || files.length === 0 || !event) return
     setUploading(true)
     setError('')
+    setProgress({ current: 0, total: files.length })
 
     const guestName = name.trim() || null
     if (guestName) localStorage.setItem('momento-guest-name', guestName)
@@ -58,7 +88,10 @@ export default function UploadPage() {
       .filter(Boolean)
 
     try {
-      for (const file of Array.from(files)) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setProgress({ current: i + 1, total: files.length })
+
         const formData = new FormData()
         formData.append('file', file)
         formData.append('eventId', event.id)
@@ -79,13 +112,13 @@ export default function UploadPage() {
           hashtags: parsedTags,
         })
       }
-
       setDone(true)
     } catch (err: any) {
       setError(err.message ?? 'Upload failed. Please try again.')
     }
 
     setUploading(false)
+    setProgress(null)
   }
 
   const input: React.CSSProperties = {
@@ -102,8 +135,10 @@ export default function UploadPage() {
   }
 
   if (!event) return (
-    <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+      <div style={{ width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading event...</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </main>
   )
 
@@ -116,7 +151,7 @@ export default function UploadPage() {
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', maxWidth: '20rem' }}>
         <button
-          onClick={() => { setFiles(null); setDone(false); setHashtags('') }}
+          onClick={() => { setFiles(null); setDone(false); setHashtags(''); setProgress(null) }}
           style={{ width: '100%', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px' }}
         >
           Upload more
@@ -140,16 +175,12 @@ export default function UploadPage() {
         >
           ‹ Feed
         </Link>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ color: 'var(--text-primary)', margin: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '1rem' }}>
-            {event.title}
-          </p>
-        </div>
-        <ThemeToggle />
+        <p style={{ color: 'var(--text-primary)', margin: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '1rem', flex: 1 }}>
+          {event.title}
+        </p>
       </header>
 
       <div style={{ maxWidth: '32rem', margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
         <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '1rem', padding: '1.25rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           <div>
             <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Share your shots</h2>
@@ -164,19 +195,45 @@ export default function UploadPage() {
             </p>
           )}
 
+          {fileSizeWarning && (
+            <p style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: '0.5rem', padding: '0.625rem 0.875rem', fontSize: '0.825rem', border: '1px solid rgba(245,158,11,0.3)' }}>
+              ⚠️ {fileSizeWarning}
+            </p>
+          )}
+
+          {/* Name field */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
-              Your name (optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Kemi"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              style={input}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
+                Your name (optional)
+              </label>
+              {name && !showNameChange && (
+                <button
+                  onClick={() => setShowNameChange(true)}
+                  style={{ color: 'var(--text-muted)', fontSize: '0.775rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  Not you?
+                </button>
+              )}
+            </div>
+            {showNameChange || !name ? (
+              <input
+                type="text"
+                placeholder="e.g. Kemi"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onBlur={() => setShowNameChange(false)}
+                autoFocus={showNameChange}
+                style={input}
+              />
+            ) : (
+              <div style={{ ...input, display: 'flex', alignItems: 'center', color: 'var(--text-primary)' }}>
+                {name}
+              </div>
+            )}
           </div>
 
+          {/* Hashtags */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
               Hashtags (optional)
@@ -188,40 +245,75 @@ export default function UploadPage() {
               onChange={e => setHashtags(e.target.value)}
               style={input}
             />
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.825rem' }}>
-              Separate tags with spaces
-            </p>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.825rem' }}>Separate tags with spaces</p>
           </div>
 
+          {/* File picker */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
               Photos & videos *
             </label>
-            <label
-              style={{ width: '100%', minHeight: '120px', border: '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', boxSizing: 'border-box', padding: '1.5rem' }}
-            >
-              <span style={{ fontSize: '2rem' }}>📁</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem', textAlign: 'center' }}>
-                {files && files.length > 0
-                  ? `${files.length} file${files.length > 1 ? 's' : ''} selected`
-                  : 'Tap to select photos or videos'}
-              </span>
-              <input
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                onChange={e => setFiles(e.target.files)}
-                style={{ display: 'none' }}
-              />
-            </label>
+            <div style={{ display: 'flex', gap: '0.625rem' }}>
+
+              {/* Camera capture */}
+              <label
+                style={{ flex: 1, minHeight: '52px', border: '1px solid var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
+              >
+                <span style={{ fontSize: '1.25rem' }}>📷</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.775rem', fontWeight: 600 }}>Camera</span>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  capture="environment"
+                  onChange={e => handleFileChange(e.target.files)}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {/* Library picker */}
+              <label
+                style={{ flex: 1, minHeight: '52px', border: files && files.length > 0 ? '2px solid var(--accent)' : '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
+              >
+                <span style={{ fontSize: '1.25rem' }}>🖼️</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.775rem', fontWeight: 600, textAlign: 'center' }}>
+                  {files && files.length > 0 ? `${files.length} selected` : 'Library'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={e => handleFileChange(e.target.files)}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
           </div>
+
+          {/* Progress bar */}
+          {uploading && progress && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', margin: 0 }}>
+                  Uploading {progress.current} of {progress.total}...
+                </p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', margin: 0 }}>
+                  {Math.round((progress.current / progress.total) * 100)}%
+                </p>
+              </div>
+              <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--border)', borderRadius: '999px', overflow: 'hidden' }}>
+                <div
+                  style={{ height: '100%', backgroundColor: 'var(--accent)', borderRadius: '999px', width: `${(progress.current / progress.total) * 100}%`, transition: 'width 0.3s ease' }}
+                />
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleUpload}
             disabled={uploading || !files || files.length === 0}
             style={{ width: '100%', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px', opacity: uploading || !files || files.length === 0 ? 0.4 : 1 }}
           >
-            {uploading ? 'Uploading...' : 'Upload'}
+            {uploading ? `Uploading ${progress?.current} of ${progress?.total}...` : 'Upload'}
           </button>
         </div>
       </div>

@@ -253,6 +253,15 @@ export default function EventDashboardPage() {
           >
             {zipping ? `Zipping ${media.length} files...` : `↓ Download all (${media.length})`}
           </button>
+
+          <a
+          href={eventUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', fontSize: '1rem', minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxSizing: 'border-box', backgroundColor: 'var(--bg-input)' }}
+          >
+            ↗ Preview guest feed
+          </a>
         </div>
 
         {/* Edit form */}
