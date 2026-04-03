@@ -21,14 +21,13 @@ export default function UploadPage() {
 
   const [event, setEvent] = useState<Event | null>(null)
   const [name, setName] = useState('')
-  const [showNameChange, setShowNameChange] = useState(false)
   const [hashtags, setHashtags] = useState('')
   const [files, setFiles] = useState<FileList | null>(null)
   const [uploading, setUploading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
-  const [fileSizeWarning, setFileSizeWarning] = useState('')
+  const [fileWarning, setFileWarning] = useState('')
 
   useEffect(() => {
     async function fetchEvent() {
@@ -57,31 +56,37 @@ export default function UploadPage() {
   }, [slug, router, supabase, uploading])
 
   function handleFileChange(incoming: FileList | null) {
-      if (!incoming) return
-      setFileSizeWarning('')
+    if (!incoming) return
+    setFileWarning('')
 
-      if (incoming.length > 20) {
-        setFileSizeWarning('Please select up to 20 files at a time. Split larger batches into multiple uploads.')
-        const dt = new DataTransfer()
-        Array.from(incoming).slice(0, 20).forEach(f => dt.items.add(f))
-        setFiles(dt.files)
-        return
-      }
+    const MAX_FILES = 10
+    const MAX_SIZE_MB = 50
 
-      const oversized = Array.from(incoming).filter(f => f.size > 100 * 1024 * 1024)
-      if (oversized.length > 0) {
-        setFileSizeWarning(
-          `${oversized.length} file${oversized.length > 1 ? 's' : ''} exceed 100MB and will be skipped: ${oversized.map(f => f.name).join(', ')}`
-        )
-        const dt = new DataTransfer()
-        Array.from(incoming)
-          .filter(f => f.size <= 100 * 1024 * 1024)
-          .forEach(f => dt.items.add(f))
-        setFiles(dt.files.length > 0 ? dt.files : null)
-      } else {
-        setFiles(incoming)
-      }
+    let accepted = Array.from(incoming)
+    let warning = ''
+
+    const oversized = accepted.filter(f => f.size > MAX_SIZE_MB * 1024 * 1024)
+    accepted = accepted.filter(f => f.size <= MAX_SIZE_MB * 1024 * 1024)
+
+    if (oversized.length > 0) {
+      warning += `${oversized.length} file${oversized.length > 1 ? 's' : ''} over ${MAX_SIZE_MB}MB were removed. `
     }
+
+    if (accepted.length > MAX_FILES) {
+      warning += `Only the first ${MAX_FILES} files will be uploaded — split the rest into a second upload.`
+      accepted = accepted.slice(0, MAX_FILES)
+    }
+
+    if (warning) setFileWarning(warning.trim())
+
+    if (accepted.length > 0) {
+      const dt = new DataTransfer()
+      accepted.forEach(f => dt.items.add(f))
+      setFiles(dt.files)
+    } else {
+      setFiles(null)
+    }
+  }
 
   async function handleUpload() {
     if (!files || files.length === 0 || !event) return
@@ -166,7 +171,7 @@ export default function UploadPage() {
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', maxWidth: '20rem' }}>
         <button
-          onClick={() => { setFiles(null); setDone(false); setHashtags(''); setProgress(null) }}
+          onClick={() => { setFiles(null); setDone(false); setHashtags(''); setProgress(null); setFileWarning('') }}
           style={{ width: '100%', backgroundColor: 'var(--accent)', color: '#F7E7CE', borderRadius: '0.75rem', padding: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '1rem', minHeight: '52px' }}
         >
           Upload more
@@ -211,13 +216,13 @@ export default function UploadPage() {
             </p>
           )}
 
-          {fileSizeWarning && (
+          {fileWarning && (
             <p style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: '0.5rem', padding: '0.625rem 0.875rem', fontSize: '0.825rem', border: '1px solid rgba(245,158,11,0.3)' }}>
-              ⚠️ {fileSizeWarning}
+              ⚠️ {fileWarning}
             </p>
           )}
 
-          {/* Name field */}
+          {/* Name field — always editable input */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ color: 'var(--text-muted)', fontSize: '0.825rem', fontWeight: 600 }}>
@@ -232,19 +237,13 @@ export default function UploadPage() {
                 </button>
               )}
             </div>
-            {showNameChange ? (
-              <input
-                type="text"
-                placeholder="e.g. Kemi"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                style={input}
-              />
-            ) : (
-              <div style={{ ...input, display: 'flex', alignItems: 'center', color: 'var(--text-primary)' }}>
-                {name}
-              </div>
-            )}
+            <input
+              type="text"
+              placeholder="e.g. Kemi"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              style={input}
+            />
           </div>
 
           {/* Hashtags */}
@@ -271,6 +270,8 @@ export default function UploadPage() {
               Selecting multiple files will group them as a carousel post
             </p>
             <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.375rem' }}>
+
+              {/* Camera — no accept filter, let the OS decide */}
               <label
                 style={{ flex: 1, minHeight: '72px', border: '1px solid var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
               >
@@ -278,13 +279,13 @@ export default function UploadPage() {
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.775rem', fontWeight: 600 }}>Camera</span>
                 <input
                   type="file"
-                  accept="image/*,image/heic,image/heif,video/*"
                   capture="environment"
                   onChange={e => handleFileChange(e.target.files)}
                   style={{ display: 'none' }}
                 />
               </label>
 
+              {/* Library — no accept filter, accepts everything */}
               <label
                 style={{ flex: 1, minHeight: '72px', border: files && files.length > 0 ? '2px solid var(--accent)' : '2px dashed var(--border)', borderRadius: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-input)', padding: '0.75rem' }}
               >
@@ -294,7 +295,6 @@ export default function UploadPage() {
                 </span>
                 <input
                   type="file"
-                  accept="image/*,image/heic,image/heif,video/*"
                   multiple
                   onChange={e => handleFileChange(e.target.files)}
                   style={{ display: 'none' }}
@@ -329,6 +329,11 @@ export default function UploadPage() {
           >
             {uploading ? `Uploading ${progress?.current} of ${progress?.total}...` : 'Upload'}
           </button>
+
+          <p style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.775rem', lineHeight: 1.5 }}>
+            Max <strong style={{ color: 'var(--text-muted)' }}>10 files</strong> per upload · Max <strong style={{ color: 'var(--text-muted)' }}>50MB</strong> per file.{' '}
+            For larger batches, upload in multiple rounds.
+          </p>
         </div>
       </div>
     </main>

@@ -7,6 +7,18 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
+const ALLOWED_TYPES = [
+  // Images — all common formats including HEIC
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+  'image/gif', 'image/heic', 'image/heif', 'image/avif',
+  'image/tiff', 'image/bmp', 'image/svg+xml',
+  // Videos
+  'video/mp4', 'video/quicktime', 'video/webm',
+  'video/x-msvideo', 'video/mpeg', 'video/3gpp',
+]
+
+const MAX_SIZE_MB = 50
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
@@ -17,20 +29,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing file or eventId' }, { status: 400 })
     }
 
+    // Size check
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      return NextResponse.json(
+        { error: `File too large. Maximum size is ${MAX_SIZE_MB}MB.` },
+        { status: 400 }
+      )
+    }
+
+    // Type check — use MIME type first, fall back to extension for HEIC
+    const mimeType = file.type.toLowerCase()
+    const fileName = file.name.toLowerCase()
+    const isHeic = mimeType === 'image/heic' || mimeType === 'image/heif' ||
+      fileName.endsWith('.heic') || fileName.endsWith('.heif')
+    const isVideo = mimeType.startsWith('video/')
+    const isImage = mimeType.startsWith('image/') || isHeic
+
+    const allowed = ALLOWED_TYPES.includes(mimeType) || isHeic
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `File type not supported: ${mimeType || file.name}. Please upload images or videos only.` },
+        { status: 400 }
+      )
+    }
+
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const isVideo = file.type.startsWith('video/')
-    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
 
     const result = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
-          folder: `Momento/AdimandJojo26`,
+          folder: 'Momento/AdimandJojo26',
           resource_type: isVideo ? 'video' : 'image',
-          format: isHeic ? 'jpg' : undefined,
-          transformation: isVideo
-            ? [{ quality: 'auto' }]
-            : [{ quality: 'auto', fetch_format: 'auto' }],
+          // Convert HEIC to JPG automatically on Cloudinary side
+          ...(isHeic && { format: 'jpg' }),
         },
         (error, result) => {
           if (error) reject(error)
@@ -44,6 +76,10 @@ export async function POST(request: NextRequest) {
       type: isVideo ? 'video' : 'image',
     })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Upload error:', error)
+    return NextResponse.json(
+      { error: error.message ?? 'Upload failed. Please try again.' },
+      { status: 500 }
+    )
   }
 }
