@@ -57,22 +57,31 @@ export default function UploadPage() {
   }, [slug, router, supabase, uploading])
 
   function handleFileChange(incoming: FileList | null) {
-    if (!incoming) return
-    setFileSizeWarning('')
-    const oversized = Array.from(incoming).filter(f => f.size > 100 * 1024 * 1024)
-    if (oversized.length > 0) {
-      setFileSizeWarning(
-        `${oversized.length} file${oversized.length > 1 ? 's' : ''} exceed 100MB and will be skipped: ${oversized.map(f => f.name).join(', ')}`
-      )
-      const dt = new DataTransfer()
-      Array.from(incoming)
-        .filter(f => f.size <= 100 * 1024 * 1024)
-        .forEach(f => dt.items.add(f))
-      setFiles(dt.files.length > 0 ? dt.files : null)
-    } else {
-      setFiles(incoming)
+      if (!incoming) return
+      setFileSizeWarning('')
+
+      if (incoming.length > 20) {
+        setFileSizeWarning('Please select up to 20 files at a time. Split larger batches into multiple uploads.')
+        const dt = new DataTransfer()
+        Array.from(incoming).slice(0, 20).forEach(f => dt.items.add(f))
+        setFiles(dt.files)
+        return
+      }
+
+      const oversized = Array.from(incoming).filter(f => f.size > 100 * 1024 * 1024)
+      if (oversized.length > 0) {
+        setFileSizeWarning(
+          `${oversized.length} file${oversized.length > 1 ? 's' : ''} exceed 100MB and will be skipped: ${oversized.map(f => f.name).join(', ')}`
+        )
+        const dt = new DataTransfer()
+        Array.from(incoming)
+          .filter(f => f.size <= 100 * 1024 * 1024)
+          .forEach(f => dt.items.add(f))
+        setFiles(dt.files.length > 0 ? dt.files : null)
+      } else {
+        setFiles(incoming)
+      }
     }
-  }
 
   async function handleUpload() {
     if (!files || files.length === 0 || !event) return
@@ -269,7 +278,7 @@ export default function UploadPage() {
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.775rem', fontWeight: 600 }}>Camera</span>
                 <input
                   type="file"
-                  accept="image/*,video/*"
+                  accept="image/*,image/heic,image/heif,video/*"
                   capture="environment"
                   onChange={e => handleFileChange(e.target.files)}
                   style={{ display: 'none' }}
@@ -285,7 +294,7 @@ export default function UploadPage() {
                 </span>
                 <input
                   type="file"
-                  accept="image/*,video/*"
+                  accept="image/*,image/heic,image/heif,video/*"
                   multiple
                   onChange={e => handleFileChange(e.target.files)}
                   style={{ display: 'none' }}

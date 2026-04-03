@@ -20,12 +20,14 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const isVideo = file.type.startsWith('video/')
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
 
     const result = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           folder: `Momento/AdimandJojo26`,
           resource_type: isVideo ? 'video' : 'image',
+          format: isHeic ? 'jpg' : undefined,
           transformation: isVideo
             ? [{ quality: 'auto' }]
             : [{ quality: 'auto', fetch_format: 'auto' }],
