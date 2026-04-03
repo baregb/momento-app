@@ -253,7 +253,7 @@ export default function UploadPage() {
             </label>
             <input
               type="text"
-              placeholder="e.g. ceremony dance cake"
+              placeholder="e.g. #ceremonydance #cakesplash"
               value={hashtags}
               onChange={e => setHashtags(e.target.value)}
               style={input}
@@ -331,8 +331,8 @@ export default function UploadPage() {
           </button>
 
           <p style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.775rem', lineHeight: 1.5 }}>
-            Max <strong style={{ color: 'var(--text-muted)' }}>10 files</strong> per upload · Max <strong style={{ color: 'var(--text-muted)' }}>50MB</strong> per file.{' '}
-            For larger batches, upload in multiple rounds.
+           Upload up to <strong style={{ color: 'var(--text-muted)' }}>10 files</strong> per upload, Max <strong style={{ color: 'var(--text-muted)' }}>50MB</strong> per file.{' '}
+            For more, split into multiple uploads.
           </p>
         </div>
       </div>
