@@ -65,16 +65,19 @@ export default function UploadPage() {
     let accepted = Array.from(incoming)
     let warning = ''
 
+    // Block immediately if too many files selected
+    if (accepted.length > MAX_FILES) {
+      setFileWarning(`Please select a maximum of ${MAX_FILES} files at a time. You selected ${accepted.length} — deselect some and try again.`)
+      setFiles(null)
+      return
+    }
+
+    // Remove oversized files
     const oversized = accepted.filter(f => f.size > MAX_SIZE_MB * 1024 * 1024)
     accepted = accepted.filter(f => f.size <= MAX_SIZE_MB * 1024 * 1024)
 
     if (oversized.length > 0) {
-      warning += `${oversized.length} file${oversized.length > 1 ? 's' : ''} over ${MAX_SIZE_MB}MB were removed. `
-    }
-
-    if (accepted.length > MAX_FILES) {
-      warning += `Only the first ${MAX_FILES} files will be uploaded — split the rest into a second upload.`
-      accepted = accepted.slice(0, MAX_FILES)
+      warning += `${oversized.length} file${oversized.length > 1 ? 's' : ''} over ${MAX_SIZE_MB}MB were removed.`
     }
 
     if (warning) setFileWarning(warning.trim())
