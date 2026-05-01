@@ -95,21 +95,23 @@ export default function EventFeedPage() {
 
   // Group media into feed cards — batched uploads become carousels
   function buildFeedCards(items: Media[]): FeedCard[] {
-    const cards: FeedCard[] = []
-    const seen = new Set<string>()
+      const cards: FeedCard[] = []
+      const seen = new Set<string>()
 
-    for (const item of items) {
-      if (item.batch_id) {
-        if (seen.has(item.batch_id)) continue
-        seen.add(item.batch_id)
-        const batch = items.filter(m => m.batch_id === item.batch_id)
-        cards.push({ id: item.batch_id, items: batch, isBatch: true })
-      } else {
-        cards.push({ id: item.id, items: [item], isBatch: false })
+      for (const item of items) {
+        if (item.batch_id) {
+          if (seen.has(item.batch_id)) continue
+          seen.add(item.batch_id)
+          const batch = items
+            .filter(m => m.batch_id === item.batch_id)
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          cards.push({ id: item.batch_id, items: batch, isBatch: true })
+        } else {
+          cards.push({ id: item.id, items: [item], isBatch: false })
+        }
       }
-    }
 
-    return cards
+      return cards
   }
 
   function attachViewObserver(el: HTMLElement | null, mediaId: string) {

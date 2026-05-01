@@ -55,41 +55,36 @@ export default function UploadPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [slug, router, supabase, uploading])
 
-  function handleFileChange(incoming: FileList | null) {
-    if (!incoming) return
-    setFileWarning('')
+    function handleFileChange(incoming: FileList | null) {
+      if (!incoming) return
+      setFileWarning('')
 
-    const MAX_FILES = 10
-    const MAX_SIZE_MB = 50
+      const MAX_FILES = 10
+      const MAX_SIZE_MB = 50
 
-    let accepted = Array.from(incoming)
-    let warning = ''
+      let accepted = Array.from(incoming)
 
-    // Block immediately if too many files selected
-    if (accepted.length > MAX_FILES) {
-      setFileWarning(`Please select a maximum of ${MAX_FILES} files at a time. You selected ${accepted.length} — deselect some and try again.`)
-      setFiles(null)
-      return
+      if (accepted.length > MAX_FILES) {
+        setFileWarning(`You selected ${accepted.length} files — the maximum is ${MAX_FILES} at a time. Please go back to your gallery and select ${MAX_FILES} or fewer.`)
+        setFiles(null)
+        return
+      }
+
+      const oversized = accepted.filter(f => f.size > MAX_SIZE_MB * 1024 * 1024)
+      accepted = accepted.filter(f => f.size <= MAX_SIZE_MB * 1024 * 1024)
+
+      if (oversized.length > 0) {
+        setFileWarning(`${oversized.length} file${oversized.length > 1 ? 's' : ''} over ${MAX_SIZE_MB}MB removed.`)
+      }
+
+      if (accepted.length > 0) {
+        const dt = new DataTransfer()
+        accepted.forEach(f => dt.items.add(f))
+        setFiles(dt.files)
+      } else {
+        setFiles(null)
+      }
     }
-
-    // Remove oversized files
-    const oversized = accepted.filter(f => f.size > MAX_SIZE_MB * 1024 * 1024)
-    accepted = accepted.filter(f => f.size <= MAX_SIZE_MB * 1024 * 1024)
-
-    if (oversized.length > 0) {
-      warning += `${oversized.length} file${oversized.length > 1 ? 's' : ''} over ${MAX_SIZE_MB}MB were removed.`
-    }
-
-    if (warning) setFileWarning(warning.trim())
-
-    if (accepted.length > 0) {
-      const dt = new DataTransfer()
-      accepted.forEach(f => dt.items.add(f))
-      setFiles(dt.files)
-    } else {
-      setFiles(null)
-    }
-  }
 
   async function handleUpload() {
     if (!files || files.length === 0 || !event) return
